@@ -150,6 +150,8 @@ p {
   border-radius: 10px;
   border: none;
   outline: none;
+  /* width: 80%; */
+  /* background-color: aqua; */
 }
 
 .input-box button {
@@ -166,4 +168,12 @@ p {
 .input-box button:hover {
   box-shadow: 0 0 20px #00f2ff;
   transform: scale(1.05);
+}
+
+span{
+  color: rgb(59, 59, 238);
+  font-weight: bold;
+}
+.inputTag{
+  width: 92.5%;
 }

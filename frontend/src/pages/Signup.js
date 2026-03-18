@@ -23,19 +23,21 @@ function Signup() {
     <div className="container">
       <h2>Signup</h2>
       <input
+        className="inputTag"
         type="email"
         placeholder="Email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
       />
       <input
+        className="inputTag"
         type="password"
         placeholder="Password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
       />
       <button onClick={handleSignup}>Signup</button>
-      <p onClick={() => navigate("/")}>Already have an account? Login</p>
+      <p onClick={() => navigate("/")}>Already have an account? <span>Login</span></p>
     </div>
   );
 }
