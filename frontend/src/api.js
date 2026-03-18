@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API = "https://ai-career-copilot-pro.onrender.com/docs";
+const API = "https://ai-career-copilot-pro.onrender.com";
 
 const api = axios.create({
   baseURL: API,
