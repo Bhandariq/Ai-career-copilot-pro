@@ -8,55 +8,53 @@ import os
 import jwt
 import bcrypt
 
-# ------------------ LOAD ENV ------------------
+# ---------------- ENV ----------------
 load_dotenv()
 
 MONGO_URL = os.getenv("MONGO_URL")
 JWT_SECRET = os.getenv("JWT_SECRET")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-# ✅ SAFETY CHECK
 if not MONGO_URL:
     raise Exception("❌ MONGO_URL not set")
 
 if not JWT_SECRET:
     raise Exception("❌ JWT_SECRET not set")
 
-if not OPENAI_API_KEY:
-    raise Exception("❌ OPENAI_API_KEY not set")
-
-# ------------------ DB ------------------
-try:
-    client = MongoClient(MONGO_URL)
-    db = client["career_ai"]
-except Exception as e:
-    raise Exception(f"❌ MongoDB connection failed: {str(e)}")
+# ---------------- DB ----------------
+client = MongoClient(MONGO_URL)
+db = client["career_ai"]
 
 users = db["users"]
 history = db["history"]
 
-# ------------------ IMPORT AI ------------------
-try:
-    from ai import get_ai_response
-except Exception as e:
-    raise Exception(f"❌ AI import failed: {str(e)}")
-
-# ------------------ APP ------------------
+# ---------------- APP ----------------
 app = FastAPI()
 
-# ------------------ SECURITY ------------------
-security = HTTPBearer()
-
-# ------------------ CORS ------------------
+# ---------------- CORS ----------------
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 🔥 later restrict to frontend URL
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ------------------ MODELS ------------------
+# ---------------- SECURITY ----------------
+security = HTTPBearer()
+
+def create_token(data: dict):
+    return jwt.encode(data, JWT_SECRET, algorithm="HS256")
+
+def verify_token(token: str):
+    try:
+        return jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+    except:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    return verify_token(credentials.credentials)
+
+# ---------------- MODELS ----------------
 class User(BaseModel):
     email: str
     password: str
@@ -64,34 +62,20 @@ class User(BaseModel):
 class ChatRequest(BaseModel):
     message: str
 
-# ------------------ JWT ------------------
-def create_token(data: dict):
-    return jwt.encode(data, JWT_SECRET, algorithm="HS256")
-
-def verify_token(token: str):
-    try:
-        return jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-    except Exception:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
-
-# ------------------ AUTH ------------------
-def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    token = credentials.credentials
-    return verify_token(token)
-
-# ------------------ ROUTES ------------------
+# ---------------- ROUTES ----------------
 
 @app.get("/")
 def home():
     return {"message": "AI Career Copilot Running 🚀"}
 
-# ------------------ SIGNUP ------------------
+# ✅ FIXED SIGNUP
 @app.post("/signup")
 def signup(user: User):
     if users.find_one({"email": user.email}):
         raise HTTPException(status_code=400, detail="User already exists")
 
-    hashed = bcrypt.hashpw(user.password.encode(), bcrypt.gensalt())
+    # 🔥 FIX: store as string
+    hashed = bcrypt.hashpw(user.password.encode(), bcrypt.gensalt()).decode()
 
     users.insert_one({
         "email": user.email,
@@ -100,7 +84,7 @@ def signup(user: User):
 
     return {"message": "User created successfully"}
 
-# ------------------ LOGIN ------------------
+# ✅ FIXED LOGIN
 @app.post("/login")
 def login(user: User):
     db_user = users.find_one({"email": user.email})
@@ -108,7 +92,10 @@ def login(user: User):
     if not db_user:
         raise HTTPException(status_code=400, detail="User not found")
 
-    if not bcrypt.checkpw(user.password.encode(), db_user["password"]):
+    if not bcrypt.checkpw(
+        user.password.encode(),
+        db_user["password"].encode()
+    ):
         raise HTTPException(status_code=400, detail="Invalid password")
 
     token = create_token({"email": user.email})
@@ -118,42 +105,23 @@ def login(user: User):
         "token_type": "bearer"
     }
 
-# ------------------ CHAT ------------------
+# ---------------- CHAT ----------------
 @app.post("/chat")
 def chat(data: ChatRequest, user=Depends(get_current_user)):
     message = data.message
 
-    try:
-        response = get_ai_response(message)
-    except Exception as e:
-        print("AI ERROR:", str(e))
-        return {"response": "⚠️ AI temporarily unavailable"}
+    response = f"AI Response for: {message}"
 
-    # Save only valid responses
-    if response and not response.startswith("Error"):
-        history.insert_one({
-            "email": user["email"],
-            "question": message,
-            "answer": response
-        })
+    history.insert_one({
+        "email": user["email"],
+        "question": message,
+        "answer": response
+    })
 
     return {"response": response}
 
-# ------------------ HISTORY ------------------
+# ---------------- HISTORY ----------------
 @app.get("/history")
 def get_history(user=Depends(get_current_user)):
     data = list(history.find({"email": user["email"]}, {"_id": 0}))
     return data
-
-# ------------------ ANALYZE ------------------
-@app.post("/analyze")
-def analyze(data: dict):
-    text = data.get("text", "")
-
-    if not text:
-        return {"result": "No input"}
-
-    if "spam" in text.lower():
-        return {"result": "Spam"}
-
-    return {"result": "Not Spam"}

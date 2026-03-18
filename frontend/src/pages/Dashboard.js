@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { chat } from "../api";
+import ChatBox from "../components/ChatBox";
+import Sidebar from "../components/Sidebar";
 
 function Dashboard() {
   const [message, setMessage] = useState("");
@@ -7,26 +9,30 @@ function Dashboard() {
 
   const token = localStorage.getItem("token");
 
-  const sendMessage = async () => {
-    const data = await chat(message, token);
+  const sendMessage = async (msg) => {
+    const data = await chat(msg, token);
 
     setChatHistory([
       ...chatHistory,
-      { type: "user", text: message },
+      { type: "user", text: msg },
       { type: "ai", text: data.response },
     ]);
   };
 
   return (
-    <div>
-      <h2>Chat</h2>
-
-      {chatHistory.map((msg, i) => (
-        <p key={i}>{msg.text}</p>
-      ))}
-
-      <input onChange={(e) => setMessage(e.target.value)} />
-      <button onClick={sendMessage}>Send</button>
+    <div className="dashboard">
+      <Sidebar history={chatHistory.filter(msg => msg.type === "user").map(msg => ({ question: msg.text }))} />
+      <div className="chat-area">
+        <h2>AI Career Copilot</h2>
+        <div className="messages">
+          {chatHistory.map((msg, i) => (
+            <div key={i} className={`message ${msg.type}`}>
+              <p>{msg.text}</p>
+            </div>
+          ))}
+        </div>
+        <ChatBox send={sendMessage} />
+      </div>
     </div>
   );
 }
