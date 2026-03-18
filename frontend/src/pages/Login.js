@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../index.css";
 
@@ -8,13 +8,32 @@ function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!email || !password) {
-      alert("Please fill all fields");
+      alert("Fill all fields");
       return;
     }
 
-    alert("Login Successful 🚀");
+    try {
+      const res = await fetch("http://localhost:8000/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        localStorage.setItem("token", data.access_token);
+        navigate("/dashboard");
+      } else {
+        alert(data.detail);
+      }
+    } catch (err) {
+      alert("Server error");
+    }
   };
 
   return (

@@ -1,54 +1,84 @@
-import { useEffect, useState } from "react";
-import { chat, getHistory } from "../api";
-import ChatBox from "../components/ChatBox";
-import Sidebar from "../components/Sidebar";
-import ChartBox from "../components/ChartBox";
+import { useState } from "react";
 
-export default function Dashboard() {
-  const [messages,setMessages]=useState([]);
-  const [history,setHistory]=useState([]);
-  const token=localStorage.getItem("token");
+function Dashboard() {
+  const [message, setMessage] = useState("");
+  const [chat, setChat] = useState([]);
 
-  useEffect(()=>{
-    loadHistory();
-  },[]);
+  const token = localStorage.getItem("token");
 
-  const loadHistory=async()=>{
-    const res=await getHistory(token);
-    setHistory(res.data);
-  };
+  const sendMessage = async () => {
+    if (!message) return;
 
-  const send=async(msg)=>{
-    const res=await chat(msg,token);
+    const res = await fetch("http://localhost:8000/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ message }),
+    });
 
-    setMessages(prev=>[
-      ...prev,
-      {q:msg,a:res.data.response}
+    const data = await res.json();
+
+    setChat([
+      ...chat,
+      { type: "user", text: message },
+      { type: "ai", text: data.response },
     ]);
 
-    loadHistory();
+    setMessage("");
   };
 
   return (
-    <div className="app">
+    <div style={{ color: "white", padding: "20px" }}>
+      
+      {/* 🔥 Logout */}
+      <div style={{ position: "absolute", top: "20px", right: "20px" }}>
+        <button
+          onClick={() => {
+            localStorage.removeItem("token");
+            window.location.href = "/";
+          }}
+        >
+          Logout
+        </button>
+      </div>
 
-      <Sidebar history={history}/>
+      <h1 style={{ textAlign: "center" }}>🤖 AI Career Chat</h1>
 
-      <div className="main">
+      {/* Chat Box */}
+      <div
+        style={{
+          maxWidth: "600px",
+          margin: "20px auto",
+          background: "#111",
+          padding: "20px",
+          borderRadius: "10px",
+          height: "400px",
+          overflowY: "auto",
+        }}
+      >
+        {chat.map((msg, i) => (
+          <div key={i} style={{ margin: "10px 0" }}>
+            <strong>{msg.type === "user" ? "You" : "AI"}:</strong>{" "}
+            {msg.text}
+          </div>
+        ))}
+      </div>
 
-        <div className="chat-container">
-          {messages.map((m,i)=>(
-            <div key={i} className="msg">
-              <div className="user">You: {m.q}</div>
-              <div className="ai">AI: {m.a}</div>
-            </div>
-          ))}
-        </div>
+      {/* Input */}
+      <div style={{ textAlign: "center" }}>
+        <input
+          style={{ width: "60%", padding: "10px" }}
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder="Ask something..."
+        />
 
-        <ChartBox data={history.map((h,i)=>({name:i,value:h.question.length}))}/>
-
-        <ChatBox send={send}/>
+        <button onClick={sendMessage}>Send</button>
       </div>
     </div>
   );
 }
+
+export default Dashboard;
