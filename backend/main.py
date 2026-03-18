@@ -15,7 +15,7 @@ MONGO_URL = os.getenv("MONGO_URL")
 JWT_SECRET = os.getenv("JWT_SECRET")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-# ✅ SAFETY CHECK (IMPORTANT)
+# ✅ SAFETY CHECK
 if not MONGO_URL:
     raise Exception("❌ MONGO_URL not set")
 
@@ -50,7 +50,7 @@ security = HTTPBearer()
 # ------------------ CORS ------------------
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # 🔥 later restrict to frontend URL
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -71,8 +71,8 @@ def create_token(data: dict):
 def verify_token(token: str):
     try:
         return jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-    except:
-        raise HTTPException(status_code=401, detail="Invalid Token")
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
 
 # ------------------ AUTH ------------------
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
@@ -85,7 +85,7 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
 def home():
     return {"message": "AI Career Copilot Running 🚀"}
 
-
+# ------------------ SIGNUP ------------------
 @app.post("/signup")
 def signup(user: User):
     if users.find_one({"email": user.email}):
@@ -100,7 +100,7 @@ def signup(user: User):
 
     return {"message": "User created successfully"}
 
-
+# ------------------ LOGIN ------------------
 @app.post("/login")
 def login(user: User):
     db_user = users.find_one({"email": user.email})
@@ -112,20 +112,25 @@ def login(user: User):
         raise HTTPException(status_code=400, detail="Invalid password")
 
     token = create_token({"email": user.email})
-    return {"access_token": token}
 
+    return {
+        "access_token": token,
+        "token_type": "bearer"
+    }
 
+# ------------------ CHAT ------------------
 @app.post("/chat")
 def chat(data: ChatRequest, user=Depends(get_current_user)):
-    
     message = data.message
 
     try:
         response = get_ai_response(message)
     except Exception as e:
-        return {"response": f"Error: {str(e)}"}
+        print("AI ERROR:", str(e))
+        return {"response": "⚠️ AI temporarily unavailable"}
 
-    if not response.startswith("Error"):
+    # Save only valid responses
+    if response and not response.startswith("Error"):
         history.insert_one({
             "email": user["email"],
             "question": message,
@@ -134,16 +139,19 @@ def chat(data: ChatRequest, user=Depends(get_current_user)):
 
     return {"response": response}
 
-
+# ------------------ HISTORY ------------------
 @app.get("/history")
 def get_history(user=Depends(get_current_user)):
     data = list(history.find({"email": user["email"]}, {"_id": 0}))
     return data
 
-
+# ------------------ ANALYZE ------------------
 @app.post("/analyze")
 def analyze(data: dict):
     text = data.get("text", "")
+
+    if not text:
+        return {"result": "No input"}
 
     if "spam" in text.lower():
         return {"result": "Spam"}

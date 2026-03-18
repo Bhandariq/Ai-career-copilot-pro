@@ -1,17 +1,69 @@
 import axios from "axios";
 
-const API = "http://127.0.0.1:8000";
+// ✅ LIVE BACKEND URL (Render)
+const API = "https://ai-career-copilot-pro.onrender.com";
 
-export const signup = (data) => axios.post(`${API}/signup`, data);
-export const login = (data) => axios.post(`${API}/login`, data);
+// Create axios instance
+const api = axios.create({
+  baseURL: API,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
 
-export const chat = (msg, token) =>
-  axios.post(`${API}/chat`,
-    { message: msg },
-    { headers: { Authorization: token } }
-  );
+// ================== AUTH ==================
 
-export const getHistory = (token) =>
-  axios.get(`${API}/history`, {
-    headers: { Authorization: token }
-  });
+// SIGNUP
+export const signup = async (data) => {
+  try {
+    const res = await api.post("/signup", data);
+    return res.data;
+  } catch (err) {
+    return err.response?.data || { error: "Signup failed" };
+  }
+};
+
+// LOGIN
+export const login = async (data) => {
+  try {
+    const res = await api.post("/login", data);
+    return res.data;
+  } catch (err) {
+    return err.response?.data || { error: "Login failed" };
+  }
+};
+
+// ================== CHAT ==================
+
+// CHAT MESSAGE
+export const chat = async (message, token) => {
+  try {
+    const res = await api.post(
+      "/chat",
+      { message },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`, // ✅ FIXED
+        },
+      }
+    );
+    return res.data;
+  } catch (err) {
+    return err.response?.data || { error: "Chat failed" };
+  }
+};
+
+// ================== HISTORY ==================
+
+export const getHistory = async (token) => {
+  try {
+    const res = await api.get("/history", {
+      headers: {
+        Authorization: `Bearer ${token}`, // ✅ FIXED
+      },
+    });
+    return res.data;
+  } catch (err) {
+    return err.response?.data || { error: "History fetch failed" };
+  }
+};
