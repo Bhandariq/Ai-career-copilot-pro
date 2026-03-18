@@ -23,12 +23,15 @@ function Login() {
     <div className="container">
       <h2>Login</h2>
       <input
+        className="inputTag"  
         type="email"
         placeholder="Email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
       />
       <input
+
+        className="inputTag"
         type="password"
         placeholder="Password"
         value={password}
