@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import "../index.css";
+import { signup } from "../api";
 
 function Signup() {
   const navigate = useNavigate();
@@ -9,57 +9,22 @@ function Signup() {
   const [password, setPassword] = useState("");
 
   const handleSignup = async () => {
-    if (!email || !password) {
-      alert("Fill all fields");
-      return;
-    }
+    const data = await signup({ email, password });
 
-    try {
-      const res = await fetch("http://localhost:8000/signup", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await res.json();
-
-      if (res.ok) {
-        alert("Signup successful");
-        navigate("/");
-      } else {
-        alert(data.detail);
-      }
-    } catch (err) {
-      alert("Server error");
+    if (data.message) {
+      alert(data.message);
+      navigate("/");
+    } else {
+      alert(data.detail || data.error);
     }
   };
 
   return (
-    <div className="container">
-      <h2>Create Account 🚀</h2>
-
-      <input
-        type="email"
-        placeholder="Enter Email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-      />
-
-      <input
-        type="password"
-        placeholder="Enter Password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-      />
-
+    <div>
+      <h2>Signup</h2>
+      <input onChange={(e) => setEmail(e.target.value)} />
+      <input onChange={(e) => setPassword(e.target.value)} />
       <button onClick={handleSignup}>Signup</button>
-
-      <p onClick={() => navigate("/")}>
-        Already have account?{" "}
-        <span style={{ color: "#00f2ff" }}>Login</span>
-      </p>
     </div>
   );
 }
