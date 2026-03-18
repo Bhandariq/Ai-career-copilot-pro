@@ -8,20 +8,38 @@ import os
 import jwt
 import bcrypt
 
-from ai import get_ai_response
-
 # ------------------ LOAD ENV ------------------
 load_dotenv()
 
 MONGO_URL = os.getenv("MONGO_URL")
 JWT_SECRET = os.getenv("JWT_SECRET")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+# ✅ SAFETY CHECK (IMPORTANT)
+if not MONGO_URL:
+    raise Exception("❌ MONGO_URL not set")
+
+if not JWT_SECRET:
+    raise Exception("❌ JWT_SECRET not set")
+
+if not OPENAI_API_KEY:
+    raise Exception("❌ OPENAI_API_KEY not set")
 
 # ------------------ DB ------------------
-client = MongoClient(MONGO_URL)
-db = client["career_ai"]
+try:
+    client = MongoClient(MONGO_URL)
+    db = client["career_ai"]
+except Exception as e:
+    raise Exception(f"❌ MongoDB connection failed: {str(e)}")
 
 users = db["users"]
 history = db["history"]
+
+# ------------------ IMPORT AI ------------------
+try:
+    from ai import get_ai_response
+except Exception as e:
+    raise Exception(f"❌ AI import failed: {str(e)}")
 
 # ------------------ APP ------------------
 app = FastAPI()
@@ -56,7 +74,7 @@ def verify_token(token: str):
     except:
         raise HTTPException(status_code=401, detail="Invalid Token")
 
-# ------------------ AUTH DEPENDENCY ------------------
+# ------------------ AUTH ------------------
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     token = credentials.credentials
     return verify_token(token)
@@ -68,7 +86,6 @@ def home():
     return {"message": "AI Career Copilot Running 🚀"}
 
 
-# SIGNUP
 @app.post("/signup")
 def signup(user: User):
     if users.find_one({"email": user.email}):
@@ -84,7 +101,6 @@ def signup(user: User):
     return {"message": "User created successfully"}
 
 
-# LOGIN
 @app.post("/login")
 def login(user: User):
     db_user = users.find_one({"email": user.email})
@@ -99,7 +115,6 @@ def login(user: User):
     return {"access_token": token}
 
 
-# CHAT
 @app.post("/chat")
 def chat(data: ChatRequest, user=Depends(get_current_user)):
     
@@ -110,7 +125,6 @@ def chat(data: ChatRequest, user=Depends(get_current_user)):
     except Exception as e:
         return {"response": f"Error: {str(e)}"}
 
-    # ❌ error save mat karo
     if not response.startswith("Error"):
         history.insert_one({
             "email": user["email"],
@@ -121,19 +135,12 @@ def chat(data: ChatRequest, user=Depends(get_current_user)):
     return {"response": response}
 
 
-# HISTORY
 @app.get("/history")
 def get_history(user=Depends(get_current_user)):
-
-    data = list(history.find(
-        {"email": user["email"]},
-        {"_id": 0}
-    ))
-
+    data = list(history.find({"email": user["email"]}, {"_id": 0}))
     return data
 
 
-# ANALYZE
 @app.post("/analyze")
 def analyze(data: dict):
     text = data.get("text", "")
